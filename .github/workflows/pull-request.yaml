@@ -29,11 +29,17 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
+      - name: Add Poetry Python binary to PATH
+        run: echo "$(poetry env info --path)/bin" >> $GITHUB_PATH
+
       - name: Lint
-        run: poetry run ruff check
+        run: ruff check
 
       - name: Check formatting
-        run: poetry run ruff format --check
+        run: ruff format --check
+
+      - name: Type check
+        uses: jakebailey/pyright-action@v2
 
       - name: Test
-        run: poetry run pytest --cov=./
+        run: pytest --cov=./

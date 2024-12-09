@@ -1,7 +1,5 @@
 import re
 
-from supabase import ClientOptions
-
 
 # TODO something better than Exception?
 class ClientException(Exception):
@@ -28,5 +26,3 @@ class TWSClient:
             r"^[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$", secret_key
         ):
             raise ClientException("Malformed secret key")
-
-        self.api_client_options = ClientOptions(headers={"Authorization": secret_key})
