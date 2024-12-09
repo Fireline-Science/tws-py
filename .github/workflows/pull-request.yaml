@@ -36,7 +36,4 @@ jobs:
         run: poetry run ruff format --check
 
       - name: Test
-        run: poetry run pytest --cov=./ --cov-report=xml --cov-report=html
-
-      - name: Upload Coverage
-        uses: codecov/codecov-action@v5
+        run: poetry run pytest --cov=./

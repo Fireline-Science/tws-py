@@ -16,6 +16,7 @@ class AsyncClient(TWSClient):
                 raise ClientException("Malformed public key")
             if "Invalid URL" in str(e):
                 raise ClientException("Malformed API URL")
+            raise ClientException("Unable to create API client")
 
         return self
 

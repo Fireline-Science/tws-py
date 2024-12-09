@@ -1,5 +1,6 @@
 from typing import Any
 import pytest
+from unittest.mock import patch
 
 from tws import AsyncClient, Client, ClientException, create_client, create_async_client
 
@@ -28,6 +29,14 @@ def test_client_instantiation_exceptions(
     assert exception_message in str(exc_info.value)
 
 
+@patch("tws._sync.client.create_supabase_client")
+def test_client_unknown_exception(supabase_client):
+    supabase_client.side_effect = Exception("Unknown error")
+    with pytest.raises(ClientException) as exc_info:
+        _ = create_client(GOOD_KEY, GOOD_KEY, GOOD_URL)
+    assert "Unable to create API client" in str(exc_info.value)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "public_key,secret_key,api_url,exception_message",
@@ -46,6 +55,15 @@ async def test_async_client_instantiation_exceptions(
     with pytest.raises(ClientException) as exc_info:
         _ = await create_async_client(public_key, secret_key, api_url)
     assert exception_message in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+@patch("tws._async.client.create_async_supabase_client")
+async def test_async_client_unknown_exception(supabase_client):
+    supabase_client.side_effect = Exception("Unknown error")
+    with pytest.raises(ClientException) as exc_info:
+        _ = await create_async_client(GOOD_KEY, GOOD_KEY, GOOD_URL)
+    assert "Unable to create API client" in str(exc_info.value)
 
 
 def test_client_instantiation():
