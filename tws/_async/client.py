@@ -16,11 +16,10 @@ class AsyncClient(TWSClient):
                 raise ClientException("Malformed public key")
             if "Invalid URL" in str(e):
                 raise ClientException("Malformed API URL")
+            raise ClientException("Unable to create API client")
 
         return self
 
 
-async def create_client(
-    public_key: str, secret_key: str, api_url="https://api.tuneni.ai"
-):
+async def create_client(public_key: str, secret_key: str, api_url: str):
     return await AsyncClient.create(public_key, secret_key, api_url)
