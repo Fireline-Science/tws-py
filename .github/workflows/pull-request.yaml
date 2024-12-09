@@ -1,0 +1,41 @@
+name: Healthy Pull Request
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+jobs:
+  test-python:
+    timeout-minutes: 10
+    name: Test / OS ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up Poetry
+        uses: abatilo/actions-poetry@v3
+        with:
+          poetry-version: 1.8.4
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Lint
+        run: poetry run ruff check
+
+      - name: Check formatting
+        run: poetry run ruff format --check
+
+      - name: Test
+        run: poetry run pytest --cov=./ --cov-report=html
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v5
