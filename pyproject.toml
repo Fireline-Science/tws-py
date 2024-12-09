@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "tws"
+version = "0.1.0"
+description = "TWS client for Python."
+authors = ["Fireline Science <sean@firelinescience.com>"]
+homepage = "https://github.com/Fireline-Science/tws-py"
+repository = "https://github.com/Fireline-Science/tws-py"
+documentation = "https://github.com/Fireline-Science/tws-py"
+readme = "README.md"
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+supabase = "^2.10.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+ruff = "^0.8.2"
+pytest-asyncio = "^0.24.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
