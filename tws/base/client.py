@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+
 import re
 
 
@@ -7,7 +9,7 @@ class ClientException(Exception):
         super().__init__(message)
 
 
-class TWSClient:
+class TWSClient(ABC):
     def __init__(
         self,
         public_key: str,
@@ -26,3 +28,9 @@ class TWSClient:
             r"^[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$", secret_key
         ):
             raise ClientException("Malformed secret key")
+
+    @abstractmethod
+    def run_workflow(
+        self, workflow_definition_id: str, workflow_args: dict, timeout=600
+    ):
+        pass

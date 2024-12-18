@@ -27,6 +27,21 @@ class SyncClient(TWSClient):
 
         return self
 
+    def run_workflow(
+        self, workflow_definition_id: str, workflow_args: dict, timeout=600
+    ):
+        # Invoke the rpc call
+        # TODO what exception to raise if this fails?
+        result = self.api_client.rpc(
+            "start_workflow",
+            {
+                "workflow_definition_id": workflow_definition_id,
+            },
+        ).execute()
+
+        # TODO do we assume the response must have a workflow_instance_id?
+        workflow_instance_id = result.data["workflow_instance_id"]
+
 
 def create_client(public_key: str, secret_key: str, api_url: str):
     return SyncClient.create(public_key, secret_key, api_url)
