@@ -74,7 +74,9 @@ class AsyncClient(TWSClient):
                 )
 
             instance = result.data[0]
-            workflow_result = self._handle_workflow_status(instance, workflow_instance_id)
+            workflow_result = self._handle_workflow_status(
+                instance, workflow_instance_id
+            )
             if workflow_result is not None:
                 return workflow_result
 

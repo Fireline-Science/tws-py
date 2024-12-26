@@ -122,7 +122,9 @@ async def test_run_workflow_success(mock_table, mock_rpc, good_async_client):
     # Mock successful completion
     mock_table.return_value.select.return_value.eq.return_value.execute = AsyncMock(
         return_value=type(
-            "obj", (), {"data": [{"status": "COMPLETED", "result": {"output": "success"}}]}
+            "obj",
+            (),
+            {"data": [{"status": "COMPLETED", "result": {"output": "success"}}]},
         )()
     )
 
@@ -150,7 +152,14 @@ async def test_run_workflow_success_after_polling(
             type(
                 "obj",
                 (),
-                {"data": [{"status": "COMPLETED", "result": {"output": "success after poll"}}]},
+                {
+                    "data": [
+                        {
+                            "status": "COMPLETED",
+                            "result": {"output": "success after poll"},
+                        }
+                    ]
+                },
             )(),
         ]
     )
@@ -177,7 +186,9 @@ async def test_run_workflow_failure(mock_table, mock_rpc, good_async_client):
     # Mock failed execution
     mock_table.return_value.select.return_value.eq.return_value.execute = AsyncMock(
         return_value=type(
-            "obj", (), {"data": [{"status": "FAILED", "result": {"error": "workflow failed"}}]}
+            "obj",
+            (),
+            {"data": [{"status": "FAILED", "result": {"error": "workflow failed"}}]},
         )()
     )
 
@@ -217,7 +228,9 @@ async def test_run_workflow_timeout(mock_time, mock_table, mock_rpc, good_async_
 
     # Mock running status
     mock_table.return_value.select.return_value.eq.return_value.execute = AsyncMock(
-        return_value=type("obj", (), {"data": [{"status": "RUNNING", "result": None}]})()
+        return_value=type(
+            "obj", (), {"data": [{"status": "RUNNING", "result": None}]}
+        )()
     )
 
     # Mock time to trigger timeout
