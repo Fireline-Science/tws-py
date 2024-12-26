@@ -37,14 +37,7 @@ class SyncClient(TWSClient):
         timeout=600,
         retry_delay=1,
     ):
-        if not isinstance(timeout, (int, float)) or timeout < 1 or timeout > 3600:
-            raise ClientException("Timeout must be between 1 and 3600 seconds")
-        if (
-            not isinstance(retry_delay, (int, float))
-            or retry_delay < 1
-            or retry_delay > 60
-        ):
-            raise ClientException("Retry delay must be between 1 and 60 seconds")
+        self._validate_workflow_params(timeout, retry_delay)
 
         # TODO add logging
         try:
@@ -62,14 +55,10 @@ class SyncClient(TWSClient):
             raise ClientException("Bad request")
 
         workflow_instance_id = result.data["workflow_instance_id"]
-
-        # Poll the workflow instance until it's status changes to "COMPLETED" or "FAILED"
         start_time = time.time()
+
         while True:
-            if time.time() - start_time > timeout:
-                raise ClientException(
-                    f"Workflow execution timed out after {timeout} seconds"
-                )
+            self._check_timeout(start_time, timeout)
 
             result = (
                 self.api_client.table("workflow_instances")
@@ -84,17 +73,11 @@ class SyncClient(TWSClient):
                 )
 
             instance = result.data[0]
-            status = instance.get("status")
+            workflow_result = self._handle_workflow_status(instance, workflow_instance_id)
+            if workflow_result is not None:
+                return workflow_result
 
-            # TODO also handle CANCELLED state
-            if status == "COMPLETED":
-                return instance.get("result", {})
-            elif status == "FAILED":
-                raise ClientException(
-                    f"Workflow execution failed: {instance.get('result', {})}"
-                )
-
-            time.sleep(retry_delay)  # Wait before next poll
+            time.sleep(retry_delay)
 
 
 def create_client(public_key: str, secret_key: str, api_url: str):

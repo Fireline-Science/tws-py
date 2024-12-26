@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-
 import re
+import time
 
 
 # TODO something better than Exception?
@@ -30,6 +30,40 @@ class TWSClient(ABC):
             re.IGNORECASE,
         ):
             raise ClientException("Malformed secret key")
+
+    @staticmethod
+    def _validate_workflow_params(
+        timeout: int | float,
+        retry_delay: int | float,
+    ) -> None:
+        if not isinstance(timeout, (int, float)) or timeout < 1 or timeout > 3600:
+            raise ClientException("Timeout must be between 1 and 3600 seconds")
+        if (
+            not isinstance(retry_delay, (int, float))
+            or retry_delay < 1
+            or retry_delay > 60
+        ):
+            raise ClientException("Retry delay must be between 1 and 60 seconds")
+
+    @staticmethod
+    def _handle_workflow_status(instance: dict, workflow_instance_id: str) -> dict:
+        status = instance.get("status")
+
+        # TODO also handle CANCELLED state
+        if status == "COMPLETED":
+            return instance.get("result", {})
+        elif status == "FAILED":
+            raise ClientException(
+                f"Workflow execution failed: {instance.get('result', {})}"
+            )
+        return None
+
+    @staticmethod
+    def _check_timeout(start_time: float, timeout: int | float) -> None:
+        if time.time() - start_time > timeout:
+            raise ClientException(
+                f"Workflow execution timed out after {timeout} seconds"
+            )
 
     # TODO add docstrings
     @abstractmethod

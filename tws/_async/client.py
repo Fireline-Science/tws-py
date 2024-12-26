@@ -1,3 +1,7 @@
+import asyncio
+import time
+
+from postgrest import APIError
 from supabase import create_async_client as create_async_supabase_client
 from supabase import AsyncClient as SupabaseAsyncClient, AsyncClientOptions
 
@@ -34,7 +38,47 @@ class AsyncClient(TWSClient):
         timeout=600,
         retry_delay=1,
     ):
-        pass
+        self._validate_workflow_params(timeout, retry_delay)
+
+        # TODO add logging
+        try:
+            # Invoke the rpc call
+            result = await self.api_client.rpc(
+                "start_workflow",
+                {
+                    "workflow_definition_id": workflow_definition_id,
+                    "request_body": workflow_args,
+                },
+            ).execute()
+        except APIError as e:
+            if e.code == "P0001":
+                raise ClientException("Workflow definition ID not found")
+            raise ClientException("Bad request")
+
+        workflow_instance_id = result.data["workflow_instance_id"]
+        start_time = time.time()
+
+        while True:
+            self._check_timeout(start_time, timeout)
+
+            result = await (
+                self.api_client.table("workflow_instances")
+                .select("status,result")
+                .eq("id", workflow_instance_id)
+                .execute()
+            )
+
+            if not result.data:
+                raise ClientException(
+                    f"Workflow instance {workflow_instance_id} not found"
+                )
+
+            instance = result.data[0]
+            workflow_result = self._handle_workflow_status(instance, workflow_instance_id)
+            if workflow_result is not None:
+                return workflow_result
+
+            await asyncio.sleep(retry_delay)
 
 
 async def create_client(public_key: str, secret_key: str, api_url: str):

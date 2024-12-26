@@ -177,15 +177,6 @@ def test_run_workflow_success_after_polling(
                 ]
             },
         )(),
-        type(
-            "obj",
-            (object,),
-            {
-                "data": [
-                    {"status": "COMPLETED", "result": {"output": "success after poll"}}
-                ]
-            },
-        )(),
     ]
 
     # Mock time to avoid timeout
