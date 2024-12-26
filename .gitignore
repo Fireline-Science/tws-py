@@ -159,6 +159,7 @@ cython_debug/
 # Editors
 .vscode/
 .idea/
+.aider*
 
 # Vagrant
 .vagrant/
