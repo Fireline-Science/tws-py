@@ -1,0 +1,6 @@
+GOOD_PUBLIC_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlhdCI6MTczMzc3MDg4OCwiZXhwIjoyMDQ5MzAzNjg4fQ.geVaN_7Yg1tTj2UjibuSpV1_qTzyEjoBXoVR01X0s_M"
+BAD_PUBLIC_KEY = "not-a-valid-jwt"
+GOOD_SECRET_KEY = "123e4567-e89b-4d3c-8456-426614174000"
+BAD_SECRET_KEY = "not-a-valid-uuid4"
+GOOD_URL = "https://fakesupabaseref.supabase.co"
+BAD_URL = "not a valid URL"
