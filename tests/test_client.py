@@ -4,8 +4,10 @@ from unittest.mock import patch
 
 from tws import AsyncClient, Client, ClientException, create_client, create_async_client
 
-GOOD_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlhdCI6MTczMzc3MDg4OCwiZXhwIjoyMDQ5MzAzNjg4fQ.geVaN_7Yg1tTj2UjibuSpV1_qTzyEjoBXoVR01X0s_M"
-BAD_KEY = "not a valid JWT"
+GOOD_PUBLIC_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlhdCI6MTczMzc3MDg4OCwiZXhwIjoyMDQ5MzAzNjg4fQ.geVaN_7Yg1tTj2UjibuSpV1_qTzyEjoBXoVR01X0s_M"
+BAD_PUBLIC_KEY = "not-a-valid-jwt"
+GOOD_SECRET_KEY = "123e4567-e89b-4d3c-8456-426614174000"
+BAD_SECRET_KEY = "not-a-valid-uuid4"
 GOOD_URL = "https://fakesupabaseref.supabase.co"
 BAD_URL = "not a valid URL"
 
@@ -13,12 +15,12 @@ BAD_URL = "not a valid URL"
 @pytest.mark.parametrize(
     "public_key,secret_key,api_url,exception_message",
     [
-        [None, GOOD_KEY, GOOD_URL, "Public key is required"],
-        [GOOD_KEY, None, GOOD_URL, "Secret key is required"],
-        [GOOD_KEY, GOOD_KEY, None, "API URL is required"],
-        [BAD_KEY, GOOD_KEY, GOOD_URL, "Malformed public key"],
-        [GOOD_KEY, BAD_KEY, GOOD_URL, "Malformed secret key"],
-        [GOOD_KEY, GOOD_KEY, BAD_URL, "Malformed API URL"],
+        [None, GOOD_SECRET_KEY, GOOD_URL, "Public key is required"],
+        [GOOD_PUBLIC_KEY, None, GOOD_URL, "Secret key is required"],
+        [GOOD_PUBLIC_KEY, GOOD_SECRET_KEY, None, "API URL is required"],
+        [BAD_PUBLIC_KEY, GOOD_SECRET_KEY, GOOD_URL, "Malformed public key"],
+        [GOOD_PUBLIC_KEY, BAD_SECRET_KEY, GOOD_URL, "Malformed secret key"],
+        [GOOD_PUBLIC_KEY, GOOD_SECRET_KEY, BAD_URL, "Malformed API URL"],
     ],
 )
 def test_client_instantiation_exceptions(
@@ -33,7 +35,7 @@ def test_client_instantiation_exceptions(
 def test_client_unknown_exception(supabase_client):
     supabase_client.side_effect = Exception("Unknown error")
     with pytest.raises(ClientException) as exc_info:
-        _ = create_client(GOOD_KEY, GOOD_KEY, GOOD_URL)
+        _ = create_client(GOOD_PUBLIC_KEY, GOOD_SECRET_KEY, GOOD_URL)
     assert "Unable to create API client" in str(exc_info.value)
 
 
@@ -41,12 +43,17 @@ def test_client_unknown_exception(supabase_client):
 @pytest.mark.parametrize(
     "public_key,secret_key,api_url,exception_message",
     [
-        [None, GOOD_KEY, GOOD_URL, "Public key is required"],
-        [GOOD_KEY, None, GOOD_URL, "Secret key is required"],
-        [GOOD_KEY, GOOD_KEY, None, "API URL is required"],
-        [BAD_KEY, GOOD_KEY, GOOD_URL, "Malformed public key"],
-        [GOOD_KEY, BAD_KEY, GOOD_URL, "Malformed secret key"],
-        [GOOD_KEY, GOOD_KEY, BAD_URL, "Malformed API URL"],
+        [None, GOOD_SECRET_KEY, GOOD_URL, "Public key is required"],
+        [GOOD_PUBLIC_KEY, None, GOOD_URL, "Secret key is required"],
+        [GOOD_PUBLIC_KEY, GOOD_SECRET_KEY, None, "API URL is required"],
+        [BAD_PUBLIC_KEY, GOOD_SECRET_KEY, GOOD_URL, "Malformed public key"],
+        [
+            GOOD_PUBLIC_KEY,
+            BAD_SECRET_KEY,
+            GOOD_URL,
+            "Malformed secret key",
+        ],
+        [GOOD_PUBLIC_KEY, GOOD_SECRET_KEY, BAD_URL, "Malformed API URL"],
     ],
 )
 async def test_async_client_instantiation_exceptions(
@@ -62,16 +69,16 @@ async def test_async_client_instantiation_exceptions(
 async def test_async_client_unknown_exception(supabase_client):
     supabase_client.side_effect = Exception("Unknown error")
     with pytest.raises(ClientException) as exc_info:
-        _ = await create_async_client(GOOD_KEY, GOOD_KEY, GOOD_URL)
+        _ = await create_async_client(GOOD_PUBLIC_KEY, GOOD_SECRET_KEY, GOOD_URL)
     assert "Unable to create API client" in str(exc_info.value)
 
 
 def test_client_instantiation():
-    client = create_client(GOOD_KEY, GOOD_KEY, GOOD_URL)
+    client = create_client(GOOD_PUBLIC_KEY, GOOD_SECRET_KEY, GOOD_URL)
     assert isinstance(client, Client)
 
 
 @pytest.mark.asyncio
 async def test_async_client_instantiation():
-    client = await create_async_client(GOOD_KEY, GOOD_KEY, GOOD_URL)
+    client = await create_async_client(GOOD_PUBLIC_KEY, GOOD_SECRET_KEY, GOOD_URL)
     assert isinstance(client, AsyncClient)

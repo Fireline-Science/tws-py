@@ -23,14 +23,20 @@ class TWSClient(ABC):
         if not api_url:
             raise ClientException("API URL is required")
 
-        # Secret key must be a valid JWT
+        # Secret key must be a valid UUID v4
         if not re.match(
-            r"^[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*$", secret_key
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            secret_key,
+            re.IGNORECASE,
         ):
             raise ClientException("Malformed secret key")
 
     @abstractmethod
     def run_workflow(
-        self, workflow_definition_id: str, workflow_args: dict, timeout=600
+        self,
+        workflow_definition_id: str,
+        workflow_args: dict,
+        timeout=600,
+        retry_delay=1,
     ):
         pass
