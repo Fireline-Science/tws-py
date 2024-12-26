@@ -27,6 +27,15 @@ class AsyncClient(TWSClient):
 
         return self
 
+    async def run_workflow(
+        self,
+        workflow_definition_id: str,
+        workflow_args: dict,
+        timeout=600,
+        retry_delay=1,
+    ):
+        pass
+
 
 async def create_client(public_key: str, secret_key: str, api_url: str):
     return await AsyncClient.create(public_key, secret_key, api_url)
