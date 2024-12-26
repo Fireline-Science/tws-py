@@ -11,7 +11,7 @@ from tests.constants import (
     GOOD_URL,
     BAD_URL,
 )
-from tws import AsyncClient, Client, ClientException, create_async_client
+from tws import AsyncClient, ClientException, create_async_client
 
 
 @pytest.fixture
