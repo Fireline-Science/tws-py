@@ -47,9 +47,7 @@ class TWSClient(ABC):
             raise ClientException("Retry delay must be between 1 and 60 seconds")
 
     @staticmethod
-    def _handle_workflow_status(
-        instance: dict, workflow_instance_id: str
-    ) -> Optional[dict]:
+    def _handle_workflow_status(instance: dict) -> Optional[dict]:
         status = instance.get("status")
 
         # TODO also handle CANCELLED state
