@@ -34,8 +34,8 @@ class TWSClient(ABC):
 
     @staticmethod
     def _validate_workflow_params(
-        timeout: int | float,
-        retry_delay: int | float,
+        timeout: Union[int, float],
+        retry_delay: Union[int, float],
     ) -> None:
         if not isinstance(timeout, (int, float)) or timeout < 1 or timeout > 3600:
             raise ClientException("Timeout must be between 1 and 3600 seconds")
@@ -62,7 +62,7 @@ class TWSClient(ABC):
         return None
 
     @staticmethod
-    def _check_timeout(start_time: float, timeout: int | float) -> None:
+    def _check_timeout(start_time: float, timeout: Union[int, float]) -> None:
         if time.time() - start_time > timeout:
             raise ClientException(
                 f"Workflow execution timed out after {timeout} seconds"
