@@ -13,6 +13,19 @@ class SyncClient(TWSClient):
 
     @classmethod
     def create(cls, public_key: str, secret_key: str, api_url: str):
+        """Create a new synchronous TWS client instance.
+
+        Args:
+            public_key: The TWS public key
+            secret_key: The TWS secret key
+            api_url: The TWS API URL
+
+        Returns:
+            A configured SyncClient instance
+
+        Raises:
+            ClientException: If the credentials are invalid or connection fails
+        """
         self = cls(public_key, secret_key, api_url)
         try:
             self.api_client_options = ClientOptions(
@@ -80,4 +93,19 @@ class SyncClient(TWSClient):
 
 
 def create_client(public_key: str, secret_key: str, api_url: str):
+    """Create a new synchronous TWS client instance.
+
+    This is the recommended way to instantiate a synchronous client.
+
+    Args:
+        public_key: The TWS public key
+        secret_key: The TWS secret key
+        api_url: The TWS API URL
+
+    Returns:
+        A configured SyncClient instance
+
+    Raises:
+        ClientException: If the credentials are invalid or connection fails
+    """
     return SyncClient.create(public_key, secret_key, api_url)

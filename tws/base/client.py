@@ -4,7 +4,6 @@ import time
 from typing import Optional, Union, Coroutine, Any
 
 
-# TODO something better than Exception?
 class ClientException(Exception):
     def __init__(self, message: str):
         super().__init__(message)
@@ -66,7 +65,6 @@ class TWSClient(ABC):
                 f"Workflow execution timed out after {timeout} seconds"
             )
 
-    # TODO add docstrings
     @abstractmethod
     def run_workflow(
         self,
@@ -75,4 +73,18 @@ class TWSClient(ABC):
         timeout=600,
         retry_delay=1,
     ) -> Union[dict, Coroutine[Any, Any, dict]]:
+        """Execute a workflow and wait for it to complete or fail.
+
+        Args:
+            workflow_definition_id: The unique identifier of the workflow definition to execute
+            workflow_args: Dictionary of arguments to pass to the workflow
+            timeout: Maximum time in seconds to wait for workflow completion (1-3600)
+            retry_delay: Time in seconds between status checks (1-60)
+
+        Returns:
+            The workflow execution result as a dictionary
+
+        Raises:
+            ClientException: If the workflow fails, times out, or if invalid parameters are provided
+        """
         pass
