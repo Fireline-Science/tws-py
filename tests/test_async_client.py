@@ -1,7 +1,7 @@
 from typing import Any
 import pytest
 from unittest.mock import patch, AsyncMock
-from postgrest import APIError
+from postgrest.exceptions import APIError
 
 from tests.constants import (
     GOOD_PUBLIC_KEY,

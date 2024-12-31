@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import re
 import time
+from typing import Optional, Union, Coroutine, Any
 
 
 # TODO something better than Exception?
@@ -46,7 +47,9 @@ class TWSClient(ABC):
             raise ClientException("Retry delay must be between 1 and 60 seconds")
 
     @staticmethod
-    def _handle_workflow_status(instance: dict, workflow_instance_id: str) -> dict:
+    def _handle_workflow_status(
+        instance: dict, workflow_instance_id: str
+    ) -> Optional[dict]:
         status = instance.get("status")
 
         # TODO also handle CANCELLED state
@@ -73,5 +76,5 @@ class TWSClient(ABC):
         workflow_args: dict,
         timeout=600,
         retry_delay=1,
-    ):
+    ) -> Union[dict, Coroutine[Any, Any, dict]]:
         pass

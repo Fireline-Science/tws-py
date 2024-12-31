@@ -1,6 +1,6 @@
 import time
 
-from postgrest import APIError
+from postgrest.exceptions import APIError
 from supabase import create_client as create_supabase_client
 from supabase import Client as SyncSupabaseClient, ClientOptions
 

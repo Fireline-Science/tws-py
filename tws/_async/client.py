@@ -1,7 +1,7 @@
 import asyncio
 import time
 
-from postgrest import APIError
+from postgrest.exceptions import APIError
 from supabase import create_async_client as create_async_supabase_client
 from supabase import AsyncClient as SupabaseAsyncClient, AsyncClientOptions
 
