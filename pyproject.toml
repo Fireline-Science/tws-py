@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "tws"
+name = "tws-sdk"
 version = "0.1.0"
 description = "TWS client for Python."
 authors = ["Fireline Science <sean@firelinescience.com>"]
@@ -12,6 +12,9 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent"
+]
+packages = [
+    {include = "tws"}
 ]
 
 [tool.poetry.dependencies]
