@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: poetry install
 
+      - name: Build distribution
+        run: poetry build
+
       - name: Add Poetry Python binary to PATH
         run: echo "$(poetry env info --path)/bin" >> $GITHUB_PATH
 
