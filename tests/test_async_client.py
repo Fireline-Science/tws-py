@@ -41,7 +41,6 @@ async def test_async_client_instantiation_exceptions(
     assert exception_message in str(exc_info.value)
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "timeout,retry_delay,exception_message",
     [
@@ -69,7 +68,6 @@ async def test_run_workflow_validation(
     assert exception_message in str(exc_info.value)
 
 
-@pytest.mark.asyncio
 @patch("tws._async.client.AsyncClient._make_rpc_request")
 async def test_run_workflow_not_found(mock_rpc, good_async_client):
     mock_request = Request("POST", "http://example.com")
@@ -88,7 +86,6 @@ async def test_run_workflow_not_found(mock_rpc, good_async_client):
     assert "Workflow definition ID not found" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
 @patch("tws._async.client.AsyncClient._make_rpc_request")
 async def test_run_workflow_bad_request(mock_rpc, good_async_client):
     mock_request = Request("POST", "http://example.com")
@@ -105,7 +102,6 @@ async def test_run_workflow_bad_request(mock_rpc, good_async_client):
     assert "Bad request" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
 @patch("tws._async.client.AsyncClient._make_rpc_request")
 @patch("tws._async.client.AsyncClient._make_request")
 async def test_run_workflow_success(mock_request, mock_rpc, good_async_client):
@@ -122,7 +118,6 @@ async def test_run_workflow_success(mock_request, mock_rpc, good_async_client):
     assert result == {"output": "success"}
 
 
-@pytest.mark.asyncio
 @patch("tws._async.client.AsyncClient._make_rpc_request")
 @patch("tws._async.client.AsyncClient._make_request")
 @patch("asyncio.sleep")
@@ -150,7 +145,6 @@ async def test_run_workflow_success_after_polling(
     assert result == {"output": "success after poll"}
 
 
-@pytest.mark.asyncio
 @patch("tws._async.client.AsyncClient._make_rpc_request")
 @patch("tws._async.client.AsyncClient._make_request")
 async def test_run_workflow_failure(mock_request, mock_rpc, good_async_client):
@@ -168,7 +162,6 @@ async def test_run_workflow_failure(mock_request, mock_rpc, good_async_client):
     assert "Workflow execution failed" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
 @patch("tws._async.client.AsyncClient._make_rpc_request")
 @patch("tws._async.client.AsyncClient._make_request")
 async def test_run_workflow_instance_not_found(
@@ -186,7 +179,6 @@ async def test_run_workflow_instance_not_found(
     assert "Workflow instance 123 not found" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
 @patch("httpx.AsyncClient.request")
 async def test_make_request_success(mock_request, good_async_client):
     mock_response = mock_request.return_value
@@ -211,7 +203,6 @@ async def test_make_request_success(mock_request, good_async_client):
     assert result == {"data": "test"}
 
 
-@pytest.mark.asyncio
 @patch("httpx.AsyncClient.request")
 async def test_make_request_error(mock_request, good_async_client):
     mock_request.side_effect = httpx.RequestError("Network error")
@@ -223,7 +214,6 @@ async def test_make_request_error(mock_request, good_async_client):
     assert "Request error occurred: Network error" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
 @patch("tws._async.client.AsyncClient._make_request")
 async def test_make_rpc_request_success(mock_request, good_async_client):
     mock_request.return_value = {"result": "success"}
@@ -239,7 +229,6 @@ async def test_make_rpc_request_success(mock_request, good_async_client):
     assert result == {"result": "success"}
 
 
-@pytest.mark.asyncio
 @patch("tws._async.client.AsyncClient._make_request")
 async def test_make_rpc_request_without_payload(mock_request, good_async_client):
     mock_request.return_value = {"result": "success"}
@@ -251,7 +240,6 @@ async def test_make_rpc_request_without_payload(mock_request, good_async_client)
     assert result == {"result": "success"}
 
 
-@pytest.mark.asyncio
 @patch("tws._async.client.AsyncClient._make_rpc_request")
 @patch("tws._async.client.AsyncClient._make_request")
 @patch("time.time")
