@@ -10,7 +10,7 @@ def is_valid_jwt(value: str) -> bool:
 
     value = value.strip()
 
-    # Valid JWT must have exactly 2 period (Header.Payload.Signature)
+    # Valid JWT must have exactly 2 periods (Header.Payload.Signature)
     if value.count(".") != 2:
         return False
 
