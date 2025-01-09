@@ -19,7 +19,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.9"
-supabase = "^2.10.0"
+httpx = {extras = ["http2"], version = ">=0.26,<0.29"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"

@@ -1,7 +1,12 @@
 from abc import ABC, abstractmethod
 import re
 import time
-from typing import Optional, Union, Coroutine, Any
+from typing import Optional, Union, Coroutine, Any, Dict
+from urllib.parse import urlparse
+
+from httpx import Client as SyncClient, AsyncClient
+
+from tws.utils import is_valid_jwt
 
 
 class ClientException(Exception):
@@ -30,6 +35,30 @@ class TWSClient(ABC):
             re.IGNORECASE,
         ):
             raise ClientException("Malformed secret key")
+
+        # API URL must be a valid URL
+        if urlparse(api_url).scheme not in {"https", "http"}:
+            raise ClientException("Malformed API URL")
+
+        # Public key should look like a valid JWT
+        if not is_valid_jwt(public_key):
+            raise ClientException("Malformed public key")
+
+        base_url = api_url.rstrip("/")
+        headers = {
+            "Authorization": secret_key,
+            "apikey": public_key,
+            "Content-Type": "application/json",
+        }
+        self.session = self.create_session(base_url, headers)
+
+    @abstractmethod
+    def create_session(
+        self,
+        base_url: str,
+        headers: Dict[str, str],
+    ) -> Union[SyncClient, AsyncClient]:
+        raise NotImplementedError()
 
     @staticmethod
     def _validate_workflow_params(
