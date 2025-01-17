@@ -61,3 +61,27 @@ async def main():
             },
         )
 ```
+
+### Tags
+
+You can specify tags, which are string key-value pairs, when calling the `run_workflow` method. These tags can then
+be used when designing workflows in TWS to lookup and filter the results of workflow runs. This allows you to associate
+the results of a workflow run with a specific entity or grouping mechanism within your system, such as a user ID or
+a lesson ID.
+
+Provide tags to the `run_workflow` method as a dictionary. Keep in mind that both tag keys and values must be strings
+that are at most 255 characters long.
+
+```python
+tws_client.run_workflow(
+    workflow_definition_id="your_workflow_id",
+    workflow_args={
+        "param1": "value1",
+        "param2": "value2"
+    },
+    tags={
+        "user_id": "12345",
+        "lesson_id": "67890"
+    }
+)
+```
