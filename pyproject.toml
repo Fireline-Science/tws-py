@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tws-sdk"
-version = "0.2.0"
+version = "0.2.1"
 description = "TWS client for Python."
 authors = ["Fireline Science <sean@firelinescience.com>"]
 homepage = "https://github.com/Fireline-Science/tws-py"
