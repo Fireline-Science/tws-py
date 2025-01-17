@@ -94,6 +94,19 @@ class TWSClient(ABC):
                 f"Workflow execution timed out after {timeout} seconds"
             )
 
+    @staticmethod
+    def _validate_tags(tags: Optional[Dict[str, str]]) -> None:
+        if tags is not None:
+            if not isinstance(tags, dict):
+                raise ClientException("Tags must be a dictionary")
+            for key, value in tags.items():
+                if not isinstance(key, str) or not isinstance(value, str):
+                    raise ClientException("Tag keys and values must be strings")
+                if len(key) > 255 or len(value) > 255:
+                    raise ClientException(
+                        "Tag keys and values must be <= 255 characters"
+                    )
+
     @abstractmethod
     def run_workflow(
         self,
@@ -101,6 +114,7 @@ class TWSClient(ABC):
         workflow_args: dict,
         timeout=600,
         retry_delay=1,
+        tags: Optional[Dict[str, str]] = None,
     ) -> Union[dict, Coroutine[Any, Any, dict]]:
         """Execute a workflow and wait for it to complete or fail.
 
@@ -109,6 +123,7 @@ class TWSClient(ABC):
             workflow_args: Dictionary of arguments to pass to the workflow
             timeout: Maximum time in seconds to wait for workflow completion (1-3600)
             retry_delay: Time in seconds between status checks (1-60)
+            tags: Optional dictionary of tag key-value pairs to attach to the workflow
 
         Returns:
             The workflow execution result as a dictionary
