@@ -103,13 +103,17 @@ class AsyncClient(TWSClient):
         workflow_args: dict,
         timeout=600,
         retry_delay=1,
+        tags: Optional[Dict[str, str]] = None,
     ):
         self._validate_workflow_params(timeout, retry_delay)
+        self._validate_tags(tags)
 
         payload = {
             "workflow_definition_id": workflow_definition_id,
             "request_body": workflow_args,
         }
+        if tags is not None:
+            payload["tags"] = tags
 
         try:
             result = await self._make_rpc_request("start_workflow", payload)

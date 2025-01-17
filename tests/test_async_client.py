@@ -54,7 +54,7 @@ async def test_async_client_instantiation_exceptions(
         [600, "not a number", "Retry delay must be between 1 and 60 seconds"],
     ],
 )
-async def test_run_workflow_validation(
+async def test_run_workflow_timing_validation(
     good_async_client, timeout, retry_delay, exception_message
 ):
     with pytest.raises(ClientException) as exc_info:
@@ -66,6 +66,56 @@ async def test_run_workflow_validation(
                 retry_delay=retry_delay,
             )
     assert exception_message in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "tags,exception_message",
+    [
+        [{"key": 123}, "Tag keys and values must be strings"],
+        [{"key": "value", "bad_key": 123}, "Tag keys and values must be strings"],
+        [{123: "value"}, "Tag keys and values must be strings"],
+        ["not_a_dict", "Tags must be a dictionary"],
+        [{"x" * 256: "value"}, "Tag keys and values must be <= 255 characters"],
+        [{"key": "x" * 256}, "Tag keys and values must be <= 255 characters"],
+    ],
+)
+async def test_run_workflow_tag_validation(good_async_client, tags, exception_message):
+    with pytest.raises(ClientException) as exc_info:
+        async with good_async_client:
+            await good_async_client.run_workflow(
+                "workflow-id", {"arg": "value"}, tags=tags
+            )
+    assert exception_message in str(exc_info.value)
+
+
+@patch("tws._async.client.AsyncClient._make_rpc_request")
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_run_workflow_with_valid_tags(mock_request, mock_rpc, good_async_client):
+    # Mock successful workflow start
+    mock_rpc.return_value = {"workflow_instance_id": "123"}
+
+    # Mock successful completion
+    mock_request.return_value = [
+        {"status": "COMPLETED", "result": {"output": "success"}}
+    ]
+
+    valid_tags = {"userId": "someUserId", "lessonId": "someLessonId"}
+
+    async with good_async_client:
+        result = await good_async_client.run_workflow(
+            "workflow-id", {"arg": "value"}, tags=valid_tags
+        )
+
+    # Verify tags were included in the RPC payload
+    mock_rpc.assert_called_once_with(
+        "start_workflow",
+        {
+            "workflow_definition_id": "workflow-id",
+            "request_body": {"arg": "value"},
+            "tags": valid_tags,
+        },
+    )
+    assert result == {"output": "success"}
 
 
 @patch("tws._async.client.AsyncClient._make_rpc_request")
