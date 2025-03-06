@@ -8,6 +8,8 @@ from httpx import Client as SyncClient, AsyncClient
 
 from tws.utils import is_valid_jwt
 
+TWS_API_KEY_HEADER = "X-TWS-API-KEY"
+
 
 class ClientException(Exception):
     def __init__(self, message: str):
@@ -46,11 +48,12 @@ class TWSClient(ABC):
 
         base_url = api_url.rstrip("/")
         headers = {
-            "Authorization": secret_key,
+            "Authorization": f"Bearer {public_key}",
             "apikey": public_key,
-            "Content-Type": "application/json",
+            TWS_API_KEY_HEADER: secret_key,
         }
         self.session = self.create_session(base_url, headers)
+        self.user_id = None
 
     @abstractmethod
     def create_session(
@@ -108,6 +111,41 @@ class TWSClient(ABC):
                     )
 
     @abstractmethod
+    def _lookup_user_id(self) -> Union[str, Coroutine[Any, Any, str]]:
+        """Look up the user ID associated with the API key.
+
+        Lazily fetches and caches the user ID if it hasn't been retrieved yet.
+
+        Returns:
+            The user ID string
+
+        Raises:
+            ClientException: If the user ID cannot be found
+        """
+        raise NotImplementedError()
+
+    @staticmethod
+    def _validate_files(files: Optional[Dict[str, str]]) -> None:
+        """Validate file upload parameters.
+
+        Args:
+            files: Dictionary mapping argument names to file paths
+
+        Raises:
+            ClientException: If files parameter is invalid
+        """
+        if files is not None:
+            if not isinstance(files, dict):
+                raise ClientException("Files must be a dictionary")
+            for key, value in files.items():
+                if not isinstance(key, str):
+                    raise ClientException("File keys must be strings")
+
+                # Validate that the value is a string (file path)
+                if not isinstance(value, str):
+                    raise ClientException("File values must be file paths (strings)")
+
+    @abstractmethod
     def run_workflow(
         self,
         workflow_definition_id: str,
@@ -115,6 +153,7 @@ class TWSClient(ABC):
         timeout=600,
         retry_delay=1,
         tags: Optional[Dict[str, str]] = None,
+        files: Optional[Dict[str, str]] = None,
     ) -> Union[dict, Coroutine[Any, Any, dict]]:
         """Execute a workflow and wait for it to complete or fail.
 
@@ -124,6 +163,7 @@ class TWSClient(ABC):
             timeout: Maximum time in seconds to wait for workflow completion (1-3600)
             retry_delay: Time in seconds between status checks (1-60)
             tags: Optional dictionary of tag key-value pairs to attach to the workflow
+            files: Optional dictionary mapping workflow argument names to file paths
 
         Returns:
             The workflow execution result as a dictionary

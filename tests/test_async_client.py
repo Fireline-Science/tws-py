@@ -88,6 +88,42 @@ async def test_run_workflow_tag_validation(good_async_client, tags, exception_me
     assert exception_message in str(exc_info.value)
 
 
+@pytest.mark.parametrize(
+    "files,exception_message",
+    [
+        [{"key": 123}, "File values must be file paths (strings)"],
+        [{"key": "value", "bad_key": 123}, "File values must be file paths (strings)"],
+        [{123: "value"}, "File keys must be strings"],
+        ["not_a_dict", "Files must be a dictionary"],
+        [{}, None],  # Empty dict is valid
+    ],
+)
+async def test_run_workflow_files_validation(
+    good_async_client, files, exception_message
+):
+    if exception_message:
+        with pytest.raises(ClientException) as exc_info:
+            async with good_async_client:
+                await good_async_client.run_workflow(
+                    "workflow-id", {"arg": "value"}, files=files
+                )
+        assert exception_message in str(exc_info.value)
+    else:
+        # This should not raise an exception
+        async with good_async_client:
+            with patch("tws._async.client.AsyncClient._make_rpc_request") as mock_rpc:
+                with patch(
+                    "tws._async.client.AsyncClient._make_request"
+                ) as mock_request:
+                    mock_rpc.return_value = {"workflow_instance_id": "123"}
+                    mock_request.return_value = [
+                        {"status": "COMPLETED", "result": {"output": "success"}}
+                    ]
+                    await good_async_client.run_workflow(
+                        "workflow-id", {"arg": "value"}, files=files
+                    )
+
+
 @patch("tws._async.client.AsyncClient._make_rpc_request")
 @patch("tws._async.client.AsyncClient._make_request")
 async def test_run_workflow_with_valid_tags(mock_request, mock_rpc, good_async_client):
@@ -116,6 +152,51 @@ async def test_run_workflow_with_valid_tags(mock_request, mock_rpc, good_async_c
         },
     )
     assert result == {"output": "success"}
+
+
+@patch("tws._async.client.AsyncClient._upload_file")
+@patch("tws._async.client.AsyncClient._make_rpc_request")
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_run_workflow_with_files(
+    mock_request, mock_rpc, mock_upload, good_async_client, tmp_path
+):
+    # Create a temporary test file
+    test_file = tmp_path / "test_file.txt"
+    test_file.write_text("test content")
+
+    # Mock file upload
+    mock_upload.return_value = "user-123/timestamp-test_file.txt"
+
+    # Mock successful workflow start
+    mock_rpc.return_value = {"workflow_instance_id": "123"}
+
+    # Mock successful completion
+    mock_request.return_value = [
+        {"status": "COMPLETED", "result": {"output": "success with file"}}
+    ]
+
+    files = {"input_file": str(test_file)}
+
+    async with good_async_client:
+        result = await good_async_client.run_workflow(
+            "workflow-id", {"arg": "value"}, files=files
+        )
+
+    # Verify file was uploaded
+    mock_upload.assert_called_once_with(str(test_file))
+
+    # Verify the file path was merged into workflow args
+    mock_rpc.assert_called_once_with(
+        "start_workflow",
+        {
+            "workflow_definition_id": "workflow-id",
+            "request_body": {
+                "arg": "value",
+                "input_file": "user-123/timestamp-test_file.txt",
+            },
+        },
+    )
+    assert result == {"output": "success with file"}
 
 
 @patch("tws._async.client.AsyncClient._make_rpc_request")
@@ -249,6 +330,7 @@ async def test_make_request_success(mock_request, good_async_client):
         "/rest/v1/test/endpoint",
         json={"param": "value"},
         params={"query": "param"},
+        files=None,
     )
     assert result == {"data": "test"}
 
@@ -262,6 +344,63 @@ async def test_make_request_error(mock_request, good_async_client):
             await good_async_client._make_request("GET", "test/endpoint")
 
     assert "Request error occurred: Network error" in str(exc_info.value)
+
+
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_lookup_user_id_success(mock_request, good_async_client):
+    # Mock successful user ID lookup
+    mock_request.return_value = [{"user_id": "test-user-123"}]
+
+    async with good_async_client:
+        user_id = await good_async_client._lookup_user_id()
+
+    # Verify the request was made correctly
+    mock_request.assert_called_once_with(
+        "GET",
+        "users_private",
+        params={
+            "select": "user_id",
+            "api_key": f"eq.{good_async_client.session.headers['X-TWS-API-KEY']}",
+        },
+    )
+
+    # Verify the user ID was returned and cached
+    assert user_id == "test-user-123"
+    assert good_async_client.user_id == "test-user-123"
+
+    # Reset the mock and call again to verify caching
+    mock_request.reset_mock()
+
+    # Second call should use cached value
+    user_id_again = await good_async_client._lookup_user_id()
+    assert user_id_again == "test-user-123"
+
+    # Verify no additional request was made
+    mock_request.assert_not_called()
+
+
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_lookup_user_id_empty_response(mock_request, good_async_client):
+    # Mock empty response (no user found)
+    mock_request.return_value = []
+
+    with pytest.raises(ClientException) as exc_info:
+        async with good_async_client:
+            await good_async_client._lookup_user_id()
+
+    assert "User ID not found, is your API key correct?" in str(exc_info.value)
+
+
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_lookup_user_id_request_error(mock_request, good_async_client):
+    # Mock request error
+    mock_request.side_effect = Exception("Database connection error")
+
+    with pytest.raises(ClientException) as exc_info:
+        async with good_async_client:
+            await good_async_client._lookup_user_id()
+
+    assert "Failed to look up user ID: Database connection error" in str(exc_info.value)
 
 
 @patch("tws._async.client.AsyncClient._make_request")
@@ -311,3 +450,149 @@ async def test_run_workflow_timeout(
                 "workflow-id", {"arg": "value"}, timeout=600
             )
     assert "Workflow execution timed out after 600 seconds" in str(exc_info.value)
+
+
+@patch("tws._async.client.AsyncClient._lookup_user_id")
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_upload_file_success(
+    mock_request, mock_lookup_user_id, good_async_client, tmp_path
+):
+    # Create a temporary test file
+    test_file = tmp_path / "test_file.txt"
+    test_file.write_text("test content")
+
+    # Mock user ID lookup
+    mock_lookup_user_id.return_value = "test-user-456"
+
+    # Mock successful file upload
+    mock_request.return_value = {
+        "Key": "documents/test-user-456/timestamp-test_file.txt"
+    }
+
+    async with good_async_client:
+        file_path = await good_async_client._upload_file(str(test_file))
+
+    # Verify the correct path is returned (without the documents/ prefix)
+    assert file_path == "test-user-456/timestamp-test_file.txt"
+
+    # Verify the file upload request was made with the correct parameters
+    assert mock_request.call_count == 1
+    # We can't check the exact file content in the call args because it's dynamic,
+    # but we can verify the endpoint and service
+    call_args = mock_request.call_args
+    assert call_args[0][0] == "POST"  # HTTP method
+    assert "object/documents/test-user-456/" in call_args[0][1]  # URI
+    assert call_args[1]["service"] == "storage"  # service parameter
+
+
+@patch("tws._async.client.AsyncClient._lookup_user_id")
+async def test_upload_file_nonexistent_file(mock_lookup_user_id, good_async_client):
+    # Mock user ID lookup
+    mock_lookup_user_id.return_value = "test-user-456"
+
+    with pytest.raises(ClientException) as exc_info:
+        async with good_async_client:
+            await good_async_client._upload_file("/nonexistent/file.txt")
+
+    assert "File not found: /nonexistent/file.txt" in str(exc_info.value)
+
+
+@patch("tws._async.client.AsyncClient._upload_file")
+@patch("tws._async.client.AsyncClient._make_rpc_request")
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_run_workflow_with_multiple_files(
+    mock_request, mock_rpc, mock_upload, good_async_client, tmp_path
+):
+    # Create temporary test files
+    test_file1 = tmp_path / "test_file1.txt"
+    test_file1.write_text("test content 1")
+
+    test_file2 = tmp_path / "test_file2.txt"
+    test_file2.write_text("test content 2")
+
+    # Mock file uploads with different return values for each file
+    mock_upload.side_effect = [
+        "user-123/timestamp-test_file1.txt",
+        "user-123/timestamp-test_file2.txt",
+    ]
+
+    # Mock successful workflow start
+    mock_rpc.return_value = {"workflow_instance_id": "123"}
+
+    # Mock successful completion
+    mock_request.return_value = [
+        {"status": "COMPLETED", "result": {"output": "success with multiple files"}}
+    ]
+
+    files = {"input_file1": str(test_file1), "input_file2": str(test_file2)}
+
+    async with good_async_client:
+        result = await good_async_client.run_workflow(
+            "workflow-id", {"arg": "value"}, files=files
+        )
+
+    # Verify both files were uploaded
+    assert mock_upload.call_count == 2
+    mock_upload.assert_any_call(str(test_file1))
+    mock_upload.assert_any_call(str(test_file2))
+
+    # Verify the file paths were merged into workflow args
+    mock_rpc.assert_called_once_with(
+        "start_workflow",
+        {
+            "workflow_definition_id": "workflow-id",
+            "request_body": {
+                "arg": "value",
+                "input_file1": "user-123/timestamp-test_file1.txt",
+                "input_file2": "user-123/timestamp-test_file2.txt",
+            },
+        },
+    )
+    assert result == {"output": "success with multiple files"}
+
+
+@patch("tws._async.client.AsyncClient._upload_file")
+@patch("tws._async.client.AsyncClient._make_rpc_request")
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_run_workflow_with_files_and_tags(
+    mock_request, mock_rpc, mock_upload, good_async_client, tmp_path
+):
+    # Create a temporary test file
+    test_file = tmp_path / "test_file.txt"
+    test_file.write_text("test content")
+
+    # Mock file upload
+    mock_upload.return_value = "user-123/timestamp-test_file.txt"
+
+    # Mock successful workflow start
+    mock_rpc.return_value = {"workflow_instance_id": "123"}
+
+    # Mock successful completion
+    mock_request.return_value = [
+        {"status": "COMPLETED", "result": {"output": "success with file and tags"}}
+    ]
+
+    files = {"input_file": str(test_file)}
+    tags = {"tag1": "value1", "tag2": "value2"}
+
+    async with good_async_client:
+        result = await good_async_client.run_workflow(
+            "workflow-id", {"arg": "value"}, files=files, tags=tags
+        )
+
+    # Verify file was uploaded
+    mock_upload.assert_called_once_with(str(test_file))
+
+    # Verify the file path was merged into workflow args and tags were included
+    mock_rpc.assert_called_once_with(
+        "start_workflow",
+        {
+            "workflow_definition_id": "workflow-id",
+            "request_body": {
+                "arg": "value",
+                "input_file": "user-123/timestamp-test_file.txt",
+            },
+            "tags": tags,
+        },
+    )
+    assert result == {"output": "success with file and tags"}

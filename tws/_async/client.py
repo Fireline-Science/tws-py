@@ -1,11 +1,14 @@
 import asyncio
+import mimetypes
+import os
 import time
 from typing import cast, Dict, Optional
 
+import aiofiles
 import httpx
 from httpx import AsyncClient as AsyncHttpClient
 
-from tws.base.client import TWSClient, ClientException
+from tws.base.client import TWS_API_KEY_HEADER, TWSClient, ClientException
 
 
 class AsyncClient(TWSClient):
@@ -53,12 +56,40 @@ class AsyncClient(TWSClient):
         # Close the underlying HTTP session
         await self.session.aclose()
 
+    async def _lookup_user_id(self) -> str:
+        """Look up the user ID associated with the API key.
+
+        Returns:
+            The user ID string
+
+        Raises:
+            ClientException: If the user ID cannot be found
+        """
+        if self.user_id is None:
+            params = {
+                "select": "user_id",
+                "api_key": f"eq.{self.session.headers[TWS_API_KEY_HEADER]}",
+            }
+            try:
+                response = await self._make_request(
+                    "GET", "users_private", params=params
+                )
+                if not response or len(response) == 0:
+                    raise ClientException("User ID not found, is your API key correct?")
+                self.user_id = response[0]["user_id"]
+            except Exception as e:
+                raise ClientException(f"Failed to look up user ID: {e}")
+
+        return self.user_id
+
     async def _make_request(
         self,
         method: str,
         uri: str,
         payload: Optional[dict] = None,
         params: Optional[dict] = None,
+        files: Optional[dict] = None,
+        service: str = "rest",
     ):
         """Make a HTTP request to the TWS API.
 
@@ -76,7 +107,7 @@ class AsyncClient(TWSClient):
         """
         try:
             response = await self.session.request(
-                method, f"/rest/v1/{uri}", json=payload, params=params
+                method, f"/{service}/v1/{uri}", json=payload, params=params, files=files
             )
             response.raise_for_status()
             return response.json()
@@ -97,6 +128,49 @@ class AsyncClient(TWSClient):
         """
         return await self._make_request("POST", f"rpc/{function_name}", payload)
 
+    async def _upload_file(self, file_path: str) -> str:
+        """Upload a file to the TWS API asynchronously.
+
+        Args:
+            file_path: Path to the file to upload
+
+        Returns:
+            File path that can be used in workflow arguments
+
+        Raises:
+            ClientException: If the file upload fails
+        """
+        try:
+            if not os.path.exists(file_path):
+                raise ClientException(f"File not found: {file_path}")
+
+            filename = os.path.basename(file_path)
+            unique_filename = f"{int(time.time())}-{filename}"
+
+            # Detect MIME type based on file extension
+            content_type, _ = mimetypes.guess_type(file_path)
+
+            async with aiofiles.open(file_path, "rb") as file_obj:
+                file_content = await file_obj.read()
+            user_id = await self._lookup_user_id()
+
+            # Since httpx can't handle the aiofiles file object, we have to
+            # explicitly construct the tuple so it sends the MIME type
+            files = {"upload-file": (filename, file_content, content_type)}
+
+            response = await self._make_request(
+                "POST",
+                f"object/documents/{user_id}/{unique_filename}",
+                files=files,
+                service="storage",
+            )
+
+            file_url = response["Key"]
+            # Strip the prefix, as the workflow automatically looks in the bucket
+            return file_url[len("documents/") :]
+        except Exception as e:
+            raise ClientException(f"File upload failed: {e}")
+
     async def run_workflow(
         self,
         workflow_definition_id: str,
@@ -104,13 +178,26 @@ class AsyncClient(TWSClient):
         timeout=600,
         retry_delay=1,
         tags: Optional[Dict[str, str]] = None,
+        files: Optional[Dict[str, str]] = None,
     ):
         self._validate_workflow_params(timeout, retry_delay)
         self._validate_tags(tags)
+        self._validate_files(files)
+
+        # Create a copy of workflow_args to avoid modifying the original
+        merged_args = workflow_args.copy()
+
+        # Handle file uploads if provided
+        if files:
+            for arg_name, file_path in files.items():
+                # Upload the file and get a file ID
+                file_url = await self._upload_file(file_path)
+                # Merge the file ID into the workflow arguments
+                merged_args[arg_name] = file_url
 
         payload = {
             "workflow_definition_id": workflow_definition_id,
-            "request_body": workflow_args,
+            "request_body": merged_args,
         }
         if tags is not None:
             payload["tags"] = tags

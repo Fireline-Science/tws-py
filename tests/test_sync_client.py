@@ -243,6 +243,7 @@ def test_make_request_success(mock_request, good_client):
         "/rest/v1/test/endpoint",
         json={"param": "value"},
         params={"query": "param"},
+        files=None,
     )
     assert result == {"data": "test"}
 
@@ -282,6 +283,57 @@ def test_make_rpc_request_without_payload(mock_request, good_client):
     assert result == {"result": "success"}
 
 
+@patch("tws._sync.client.SyncClient._make_request")
+def test_lookup_user_id_success(mock_request, good_client):
+    # Mock successful user ID lookup
+    mock_request.return_value = [{"user_id": "test-user-123"}]
+
+    with good_client:
+        # First call should make the request
+        user_id = good_client._lookup_user_id()
+        # Second call should use cached value
+        user_id_cached = good_client._lookup_user_id()
+
+    # Verify request was made with correct parameters
+    mock_request.assert_called_once_with(
+        "GET",
+        "users_private",
+        params={
+            "select": "user_id",
+            "api_key": f"eq.{good_client.session.headers['X-TWS-API-KEY']}",
+        },
+    )
+
+    assert user_id == "test-user-123"
+    assert user_id_cached == "test-user-123"
+    assert good_client.user_id == "test-user-123"
+    assert mock_request.call_count == 1  # Should only be called once due to caching
+
+
+@patch("tws._sync.client.SyncClient._make_request")
+def test_lookup_user_id_empty_response(mock_request, good_client):
+    # Mock empty response
+    mock_request.return_value = []
+
+    with pytest.raises(ClientException) as exc_info:
+        with good_client:
+            good_client._lookup_user_id()
+
+    assert "User ID not found, is your API key correct?" in str(exc_info.value)
+
+
+@patch("tws._sync.client.SyncClient._make_request")
+def test_lookup_user_id_request_error(mock_request, good_client):
+    # Mock request error
+    mock_request.side_effect = Exception("Network error")
+
+    with pytest.raises(ClientException) as exc_info:
+        with good_client:
+            good_client._lookup_user_id()
+
+    assert "Failed to look up user ID: Network error" in str(exc_info.value)
+
+
 @patch("tws._sync.client.SyncClient._make_rpc_request")
 @patch("tws._sync.client.SyncClient._make_request")
 @patch("time.time")
@@ -299,3 +351,108 @@ def test_run_workflow_timeout(mock_time, mock_request, mock_rpc, good_client):
         with good_client:
             good_client.run_workflow("workflow-id", {"arg": "value"}, timeout=600)
     assert "Workflow execution timed out after 600 seconds" in str(exc_info.value)
+
+
+@patch("tws._sync.client.SyncClient._lookup_user_id")
+@patch("tws._sync.client.SyncClient._make_request")
+def test_run_workflow_with_file_upload(
+    mock_request, mock_lookup_user_id, good_client, tmp_path
+):
+    # Create a temporary test file
+    test_file = tmp_path / "test_file.txt"
+    test_file.write_text("test content")
+
+    # Mock user ID lookup
+    mock_lookup_user_id.return_value = "test-user-123"
+
+    # Mock file upload response
+    mock_request.side_effect = [
+        # First call for file upload
+        {"Key": "documents/test-user-123/timestamp-test_file.txt"},
+        # Second call for workflow status
+        [{"status": "COMPLETED", "result": {"output": "success"}}],
+    ]
+
+    # Mock RPC request for workflow start
+    with patch("tws._sync.client.SyncClient._make_rpc_request") as mock_rpc:
+        mock_rpc.return_value = {"workflow_instance_id": "123"}
+
+        with good_client:
+            result = good_client.run_workflow(
+                "workflow-id", {"arg": "value"}, files={"file_arg": str(test_file)}
+            )
+
+    # Verify the file was uploaded and the file path was included in workflow args
+    mock_rpc.assert_called_once()
+    workflow_args = mock_rpc.call_args[0][1]["request_body"]
+    assert "file_arg" in workflow_args
+    assert workflow_args["file_arg"] == "test-user-123/timestamp-test_file.txt"
+    assert result == {"output": "success"}
+
+
+@patch("os.path.exists")
+def test_upload_file_not_found(mock_exists, good_client):
+    # Mock file not found
+    mock_exists.return_value = False
+
+    with pytest.raises(ClientException) as exc_info:
+        with good_client:
+            good_client._upload_file("/path/to/nonexistent/file.txt")
+
+    assert "File not found: /path/to/nonexistent/file.txt" in str(exc_info.value)
+
+
+@patch("os.path.exists")
+@patch("builtins.open", side_effect=IOError("Permission denied"))
+def test_upload_file_open_error(mock_open, mock_exists, good_client):
+    # Mock file exists but can't be opened
+    mock_exists.return_value = True
+
+    with pytest.raises(ClientException) as exc_info:
+        with good_client:
+            good_client._upload_file("/path/to/file.txt")
+
+    assert "File upload failed: Permission denied" in str(exc_info.value)
+
+
+@patch("os.path.exists")
+@patch("builtins.open")
+@patch("tws._sync.client.SyncClient._lookup_user_id")
+@patch("tws._sync.client.SyncClient._make_request")
+def test_upload_file_api_error(
+    mock_request, mock_lookup_user_id, mock_open, mock_exists, good_client
+):
+    # Mock file exists and can be opened
+    mock_exists.return_value = True
+
+    # Mock user ID lookup
+    mock_lookup_user_id.return_value = "test-user-123"
+
+    # Mock API error during upload
+    mock_request.side_effect = Exception("API error")
+
+    with pytest.raises(ClientException) as exc_info:
+        with good_client:
+            good_client._upload_file("/path/to/file.txt")
+
+    assert "File upload failed: API error" in str(exc_info.value)
+
+
+@patch("os.path.exists")
+@patch("time.time")
+def test_run_workflow_with_file_upload_error(mock_time, mock_exists, good_client):
+    # Mock time for filename generation
+    mock_time.return_value = 1234567890
+
+    # Mock file not found
+    mock_exists.return_value = False
+
+    with pytest.raises(ClientException) as exc_info:
+        with good_client:
+            good_client.run_workflow(
+                "workflow-id",
+                {"arg": "value"},
+                files={"file_arg": "/path/to/nonexistent/file.txt"},
+            )
+
+    assert "File not found: /path/to/nonexistent/file.txt" in str(exc_info.value)
