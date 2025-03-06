@@ -150,11 +150,8 @@ class SyncClient(TWSClient):
                 )
 
             file_url = response["Key"]
-            if file_url.startswith("documents/"):
-                # Strip the prefix, as the workflow automatically looks in the bucket
-                return file_url[len("documents/") :]
-
-            return file_url
+            # Strip the prefix, as the workflow automatically looks in the bucket
+            return file_url[len("documents/") :]
         except Exception as e:
             raise ClientException(f"File upload failed: {e}")
 

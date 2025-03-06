@@ -149,8 +149,6 @@ class AsyncClient(TWSClient):
 
             # Detect MIME type based on file extension
             content_type, _ = mimetypes.guess_type(file_path)
-            if content_type is None:
-                content_type = "application/octet-stream"
 
             async with aiofiles.open(file_path, "rb") as file_obj:
                 file_content = await file_obj.read()
@@ -168,11 +166,8 @@ class AsyncClient(TWSClient):
             )
 
             file_url = response["Key"]
-            if file_url.startswith("documents/"):
-                # Strip the prefix, as the workflow automatically looks in the bucket
-                return file_url[len("documents/") :]
-
-            return file_url
+            # Strip the prefix, as the workflow automatically looks in the bucket
+            return file_url[len("documents/") :]
         except Exception as e:
             raise ClientException(f"File upload failed: {e}")
 
