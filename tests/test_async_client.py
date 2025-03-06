@@ -249,6 +249,7 @@ async def test_make_request_success(mock_request, good_async_client):
         "/rest/v1/test/endpoint",
         json={"param": "value"},
         params={"query": "param"},
+        files=None,
     )
     assert result == {"data": "test"}
 
