@@ -8,6 +8,9 @@ from httpx import Client as SyncClient, AsyncClient
 
 from tws.utils import is_valid_jwt
 
+# Constant for the TWS API key header name
+TWS_API_KEY_HEADER = "X-TWS-API-KEY"
+
 
 class ClientException(Exception):
     def __init__(self, message: str):
@@ -46,9 +49,9 @@ class TWSClient(ABC):
 
         base_url = api_url.rstrip("/")
         headers = {
-            "Authorization": secret_key,
+            "Authorization": f"Bearer {public_key}",
             "apikey": public_key,
-            "Content-Type": "application/json",
+            TWS_API_KEY_HEADER: secret_key,
         }
         self.session = self.create_session(base_url, headers)
 
