@@ -424,7 +424,6 @@ def test_upload_file_api_error(
 ):
     # Mock file exists and can be opened
     mock_exists.return_value = True
-    mock_file = mock_open.return_value.__enter__.return_value
 
     # Mock user ID lookup
     mock_lookup_user_id.return_value = "test-user-123"
