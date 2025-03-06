@@ -58,25 +58,30 @@ class AsyncClient(TWSClient):
 
     async def _lookup_user_id(self) -> str:
         """Look up the user ID associated with the API key.
-        
+
         Returns:
             The user ID string
-            
+
         Raises:
             ClientException: If the user ID cannot be found
         """
         if self.user_id is None:
-            params = {"select": "user_id", "api_key": f"eq.{self.session.headers[TWS_API_KEY_HEADER]}"}
+            params = {
+                "select": "user_id",
+                "api_key": f"eq.{self.session.headers[TWS_API_KEY_HEADER]}",
+            }
             try:
-                response = await self._make_request("GET", "users_private", params=params)
+                response = await self._make_request(
+                    "GET", "users_private", params=params
+                )
                 if not response or len(response) == 0:
                     raise ClientException("User ID not found, is your API key correct?")
                 self.user_id = response[0]["user_id"]
             except Exception as e:
                 raise ClientException(f"Failed to look up user ID: {e}")
-        
+
         return self.user_id
-    
+
     async def _make_request(
         self,
         method: str,
@@ -122,16 +127,16 @@ class AsyncClient(TWSClient):
             Parsed JSON response from the API
         """
         return await self._make_request("POST", f"rpc/{function_name}", payload)
-        
+
     async def _upload_file(self, file_path: str) -> str:
         """Upload a file to the TWS API asynchronously.
-        
+
         Args:
             file_path: Path to the file to upload
-            
+
         Returns:
             File path that can be used in workflow arguments
-            
+
         Raises:
             ClientException: If the file upload fails
         """
@@ -141,34 +146,32 @@ class AsyncClient(TWSClient):
 
             filename = os.path.basename(file_path)
             unique_filename = f"{int(time.time())}-{filename}"
-            
+
             # Detect MIME type based on file extension
             content_type, _ = mimetypes.guess_type(file_path)
             if content_type is None:
                 content_type = "application/octet-stream"
-            
-            async with aiofiles.open(file_path, 'rb') as file_obj:
+
+            async with aiofiles.open(file_path, "rb") as file_obj:
                 file_content = await file_obj.read()
             user_id = await self._lookup_user_id()
-            
+
             # Since httpx can't handle the aiofiles file object, we have to
             # explicitly construct the tuple so it sends the MIME type
-            files = {
-                "upload-file": (filename, file_content, content_type)
-            }
-            
+            files = {"upload-file": (filename, file_content, content_type)}
+
             response = await self._make_request(
-                "POST", 
-                f"object/documents/{user_id}/{unique_filename}", 
-                files=files, 
-                service="storage"
+                "POST",
+                f"object/documents/{user_id}/{unique_filename}",
+                files=files,
+                service="storage",
             )
-                
+
             file_url = response["Key"]
             if file_url.startswith("documents/"):
                 # Strip the prefix, as the workflow automatically looks in the bucket
-                return file_url[len("documents/"):]
-            
+                return file_url[len("documents/") :]
+
             return file_url
         except Exception as e:
             raise ClientException(f"File upload failed: {e}")
@@ -188,7 +191,7 @@ class AsyncClient(TWSClient):
 
         # Create a copy of workflow_args to avoid modifying the original
         merged_args = workflow_args.copy()
-        
+
         # Handle file uploads if provided
         if files:
             for arg_name, file_path in files.items():

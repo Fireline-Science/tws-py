@@ -109,28 +109,28 @@ class TWSClient(ABC):
                     raise ClientException(
                         "Tag keys and values must be <= 255 characters"
                     )
-    
+
     @abstractmethod
     def _lookup_user_id(self) -> Union[str, Coroutine[Any, Any, str]]:
         """Look up the user ID associated with the API key.
-        
+
         Lazily fetches and caches the user ID if it hasn't been retrieved yet.
-        
+
         Returns:
             The user ID string
-            
+
         Raises:
             ClientException: If the user ID cannot be found
         """
         raise NotImplementedError()
-    
+
     @staticmethod
     def _validate_files(files: Optional[Dict[str, str]]) -> None:
         """Validate file upload parameters.
-        
+
         Args:
             files: Dictionary mapping argument names to file paths
-            
+
         Raises:
             ClientException: If files parameter is invalid
         """
@@ -140,7 +140,7 @@ class TWSClient(ABC):
             for key, value in files.items():
                 if not isinstance(key, str):
                     raise ClientException("File keys must be strings")
-                
+
                 # Validate that the value is a string (file path)
                 if not isinstance(value, str):
                     raise ClientException("File values must be file paths (strings)")

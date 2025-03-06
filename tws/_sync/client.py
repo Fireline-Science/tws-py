@@ -55,15 +55,18 @@ class SyncClient(TWSClient):
 
     def _lookup_user_id(self) -> str:
         """Look up the user ID associated with the API key.
-        
+
         Returns:
             The user ID string
-            
+
         Raises:
             ClientException: If the user ID cannot be found
         """
         if self.user_id is None:
-            params = {"select": "user_id", "api_key": f"eq.{self.session.headers[TWS_API_KEY_HEADER]}"}
+            params = {
+                "select": "user_id",
+                "api_key": f"eq.{self.session.headers[TWS_API_KEY_HEADER]}",
+            }
             try:
                 response = self._make_request("GET", "users_private", params=params)
                 if not response or len(response) == 0:
@@ -71,9 +74,9 @@ class SyncClient(TWSClient):
                 self.user_id = response[0]["user_id"]
             except Exception as e:
                 raise ClientException(f"Failed to look up user ID: {e}")
-        
+
         return self.user_id
-    
+
     def _make_request(
         self,
         method: str,
@@ -118,16 +121,15 @@ class SyncClient(TWSClient):
         """
         return self._make_request("POST", f"rpc/{function_name}", payload)
 
-
     def _upload_file(self, file_path: str) -> str:
         """Upload a file to the TWS API.
-        
+
         Args:
             file_path: Path to the file to upload
-            
+
         Returns:
             File path that can be used in workflow arguments
-            
+
         Raises:
             ClientException: If the file upload fails
         """
@@ -135,20 +137,23 @@ class SyncClient(TWSClient):
             if not os.path.exists(file_path):
                 raise ClientException(f"File not found: {file_path}")
             filename = os.path.basename(file_path)
-            
-            with open(file_path, 'rb') as file_obj:
+
+            with open(file_path, "rb") as file_obj:
                 # Upload the file to get a file URL
                 unique_filename = f"{int(time.time())}-{filename}"
                 user_id = self._lookup_user_id()
-                response = self._make_request("POST", f"object/documents/{user_id}/{unique_filename}", files={
-                    "upload-file": file_obj
-                }, service="storage")
-                
+                response = self._make_request(
+                    "POST",
+                    f"object/documents/{user_id}/{unique_filename}",
+                    files={"upload-file": file_obj},
+                    service="storage",
+                )
+
             file_url = response["Key"]
             if file_url.startswith("documents/"):
                 # Strip the prefix, as the workflow automatically looks in the bucket
-                return file_url[len("documents/"):]
-            
+                return file_url[len("documents/") :]
+
             return file_url
         except Exception as e:
             raise ClientException(f"File upload failed: {e}")
@@ -168,7 +173,7 @@ class SyncClient(TWSClient):
 
         # Create a copy of workflow_args to avoid modifying the original
         merged_args = workflow_args.copy()
-        
+
         # Handle file uploads if provided
         if files:
             for arg_name, file_path in files.items():
