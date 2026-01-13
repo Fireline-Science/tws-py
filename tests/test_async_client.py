@@ -132,7 +132,15 @@ async def test_run_workflow_with_valid_tags(mock_request, mock_rpc, good_async_c
 
     # Mock successful completion
     mock_request.return_value = [
-        {"status": "COMPLETED", "result": {"output": "success"}}
+        {
+            "id": "instance-123",
+            "workflow_definition_id": "workflow-id",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "COMPLETED",
+            "result": {"output": "success"},
+            "instance_num": 1,
+        }
     ]
 
     valid_tags = {"userId": "someUserId", "lessonId": "someLessonId"}
@@ -151,7 +159,9 @@ async def test_run_workflow_with_valid_tags(mock_request, mock_rpc, good_async_c
             "tags": valid_tags,
         },
     )
-    assert result == {"output": "success"}
+    assert result["result"] == {"output": "success"}
+    assert result["status"] == "COMPLETED"
+    assert result["id"] == "instance-123"
 
 
 @patch("tws._async.client.AsyncClient._upload_file")
@@ -196,7 +206,7 @@ async def test_run_workflow_with_files(
             },
         },
     )
-    assert result == {"output": "success with file"}
+    assert result["result"] == {"output": "success with file"}
 
 
 @patch("tws._async.client.AsyncClient._make_rpc_request")
@@ -241,12 +251,24 @@ async def test_run_workflow_success(mock_request, mock_rpc, good_async_client):
 
     # Mock successful completion
     mock_request.return_value = [
-        {"status": "COMPLETED", "result": {"output": "success"}}
+        {
+            "id": "instance-123",
+            "workflow_definition_id": "workflow-id",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "COMPLETED",
+            "result": {"output": "success"},
+            "instance_num": 1,
+        }
     ]
 
     async with good_async_client:
         result = await good_async_client.run_workflow("workflow-id", {"arg": "value"})
-    assert result == {"output": "success"}
+    assert result["result"] == {"output": "success"}
+    assert result["status"] == "COMPLETED"
+    assert result["id"] == "instance-123"
+    assert result["workflow_definition_id"] == "workflow-id"
+    assert result["instance_num"] == 1
 
 
 @patch("tws._async.client.AsyncClient._make_rpc_request")
@@ -273,7 +295,7 @@ async def test_run_workflow_success_after_polling(
 
     # Verify sleep was called once with retry_delay
     mock_sleep.assert_called_once_with(1)
-    assert result == {"output": "success after poll"}
+    assert result["result"] == {"output": "success after poll"}
 
 
 @patch("tws._async.client.AsyncClient._make_rpc_request")
@@ -548,7 +570,7 @@ async def test_run_workflow_with_multiple_files(
             },
         },
     )
-    assert result == {"output": "success with multiple files"}
+    assert result["result"] == {"output": "success with multiple files"}
 
 
 @patch("tws._async.client.AsyncClient._upload_file")
@@ -595,4 +617,288 @@ async def test_run_workflow_with_files_and_tags(
             "tags": tags,
         },
     )
-    assert result == {"output": "success with file and tags"}
+    assert result["result"] == {"output": "success with file and tags"}
+
+
+# Tests for get_workflow_steps
+
+
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_get_workflow_steps_success(mock_request, good_async_client):
+    mock_request.return_value = [
+        {"id": "step-1", "slug": "step-one", "type": "action", "display_name": "Step One"},
+        {"id": "step-2", "slug": "step-two", "type": "condition", "display_name": "Step Two"},
+    ]
+
+    async with good_async_client:
+        result = await good_async_client.get_workflow_steps("workflow-def-123")
+
+    mock_request.assert_called_once_with(
+        "GET",
+        "workflow_steps",
+        params={
+            "select": "id, slug, type, display_name",
+            "workflow_definition_id": "eq.workflow-def-123",
+        },
+    )
+    assert len(result) == 2
+    assert result[0]["slug"] == "step-one"
+
+
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_get_workflow_steps_with_slug_filter(mock_request, good_async_client):
+    mock_request.return_value = [
+        {"id": "step-1", "slug": "step-one", "type": "action", "display_name": "Step One"},
+    ]
+
+    async with good_async_client:
+        result = await good_async_client.get_workflow_steps(
+            "workflow-def-123", slug="step-one"
+        )
+
+    mock_request.assert_called_once_with(
+        "GET",
+        "workflow_steps",
+        params={
+            "select": "id, slug, type, display_name",
+            "workflow_definition_id": "eq.workflow-def-123",
+            "slug": "eq.step-one",
+        },
+    )
+    assert len(result) == 1
+
+
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_get_workflow_steps_with_type_filter(mock_request, good_async_client):
+    mock_request.return_value = [
+        {"id": "step-1", "slug": "step-one", "type": "action", "display_name": "Step One"},
+    ]
+
+    async with good_async_client:
+        result = await good_async_client.get_workflow_steps(
+            "workflow-def-123", workflow_step_types=["action", "condition"]
+        )
+
+    mock_request.assert_called_once_with(
+        "GET",
+        "workflow_steps",
+        params={
+            "select": "id, slug, type, display_name",
+            "workflow_definition_id": "eq.workflow-def-123",
+            "type": "in.(action,condition)",
+        },
+    )
+
+
+# Tests for rerun_workflow_with_step_slug
+
+
+@patch("tws._async.client.AsyncClient._make_rpc_request")
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_rerun_workflow_with_step_slug_success(
+    mock_request, mock_rpc, good_async_client
+):
+    # Mock successful rerun start
+    mock_rpc.return_value = {"new_workflow_instance_id": "new-instance-456"}
+
+    # Mock successful completion
+    mock_request.return_value = [
+        {
+            "id": "new-instance-456",
+            "workflow_definition_id": "workflow-def-123",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "COMPLETED",
+            "result": {"output": "rerun success"},
+            "instance_num": 2,
+        }
+    ]
+
+    async with good_async_client:
+        result = await good_async_client.rerun_workflow_with_step_slug(
+            "instance-123", "step-slug-name"
+        )
+
+    mock_rpc.assert_called_once_with(
+        "rerun_workflow_instance",
+        {
+            "workflow_instance_id": "instance-123",
+            "start_from_slug_name": "step-slug-name",
+        },
+    )
+    assert result["result"] == {"output": "rerun success"}
+    assert result["id"] == "new-instance-456"
+
+
+@patch("tws._async.client.AsyncClient._make_rpc_request")
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_rerun_workflow_with_step_slug_with_overrides(
+    mock_request, mock_rpc, good_async_client
+):
+    mock_rpc.return_value = {"new_workflow_instance_id": "new-instance-456"}
+    mock_request.return_value = [
+        {"status": "COMPLETED", "result": {"output": "rerun with overrides"}}
+    ]
+
+    step_overrides = {"step-slug": {"key": "new_value"}}
+
+    async with good_async_client:
+        await good_async_client.rerun_workflow_with_step_slug(
+            "instance-123",
+            "step-slug-name",
+            step_state_overrides=step_overrides,
+        )
+
+    mock_rpc.assert_called_once_with(
+        "rerun_workflow_instance",
+        {
+            "workflow_instance_id": "instance-123",
+            "start_from_slug_name": "step-slug-name",
+            "step_state_overrides": step_overrides,
+        },
+    )
+
+
+# Tests for rerun_workflow_with_step_id
+
+
+@patch("tws._async.client.AsyncClient._make_rpc_request")
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_rerun_workflow_with_step_id_success(
+    mock_request, mock_rpc, good_async_client
+):
+    mock_rpc.return_value = {"new_workflow_instance_id": "new-instance-456"}
+    mock_request.return_value = [
+        {
+            "id": "new-instance-456",
+            "workflow_definition_id": "workflow-def-123",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "COMPLETED",
+            "result": {"output": "rerun by id success"},
+            "instance_num": 2,
+        }
+    ]
+
+    async with good_async_client:
+        result = await good_async_client.rerun_workflow_with_step_id(
+            "instance-123", "step-id-456"
+        )
+
+    mock_rpc.assert_called_once_with(
+        "rerun_workflow_instance",
+        {
+            "workflow_instance_id": "instance-123",
+            "start_from_workflow_step_id": "step-id-456",
+        },
+    )
+    assert result["result"] == {"output": "rerun by id success"}
+
+
+# Tests for rerun workflow error handling
+
+
+@patch("tws._async.client.AsyncClient._make_rpc_request")
+async def test_rerun_workflow_permission_denied(mock_rpc, good_async_client):
+    mock_request = Request("POST", "http://example.com")
+    mock_response = Response(400, request=mock_request)
+    mock_response._content = b'{"code": "DNIED", "message": "Permission denied"}'
+
+    mock_rpc.side_effect = HTTPStatusError(
+        "400 Bad Request", request=mock_request, response=mock_response
+    )
+
+    with pytest.raises(ClientException) as exc_info:
+        async with good_async_client:
+            await good_async_client.rerun_workflow_with_step_slug(
+                "instance-123", "step-slug"
+            )
+    assert "Permission denied to rerun this workflow instance" in str(exc_info.value)
+
+
+@patch("tws._async.client.AsyncClient._make_rpc_request")
+async def test_rerun_workflow_not_found(mock_rpc, good_async_client):
+    mock_request = Request("POST", "http://example.com")
+    mock_response = Response(400, request=mock_request)
+    mock_response._content = b'{"code": "OTHER", "message": "Workflow instance not found"}'
+
+    mock_rpc.side_effect = HTTPStatusError(
+        "400 Bad Request", request=mock_request, response=mock_response
+    )
+
+    with pytest.raises(ClientException) as exc_info:
+        async with good_async_client:
+            await good_async_client.rerun_workflow_with_step_id(
+                "instance-123", "step-id"
+            )
+    assert "Workflow instance or step not found" in str(exc_info.value)
+
+
+@patch("tws._async.client.AsyncClient._make_rpc_request")
+async def test_rerun_workflow_already_running(mock_rpc, good_async_client):
+    mock_request = Request("POST", "http://example.com")
+    mock_response = Response(400, request=mock_request)
+    mock_response._content = b'{"code": "OTHER", "message": "Workflow is currently running"}'
+
+    mock_rpc.side_effect = HTTPStatusError(
+        "400 Bad Request", request=mock_request, response=mock_response
+    )
+
+    with pytest.raises(ClientException) as exc_info:
+        async with good_async_client:
+            await good_async_client.rerun_workflow_with_step_slug(
+                "instance-123", "step-slug"
+            )
+    assert "Cannot rerun a workflow that is currently running or pending" in str(
+        exc_info.value
+    )
+
+
+@patch("tws._async.client.AsyncClient._make_rpc_request")
+@patch("tws._async.client.AsyncClient._make_request")
+@patch("time.time")
+async def test_rerun_workflow_timeout(
+    mock_time, mock_request, mock_rpc, good_async_client
+):
+    mock_rpc.return_value = {"new_workflow_instance_id": "new-instance-456"}
+    mock_request.return_value = [{"status": "RUNNING", "result": None}]
+    mock_time.side_effect = [0, 601]
+
+    with pytest.raises(ClientException) as exc_info:
+        async with good_async_client:
+            await good_async_client.rerun_workflow_with_step_slug(
+                "instance-123", "step-slug", timeout=600
+            )
+    assert "Workflow execution timed out after 600 seconds" in str(exc_info.value)
+
+
+@patch("tws._async.client.AsyncClient._make_rpc_request")
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_rerun_workflow_instance_not_found_during_poll(
+    mock_request, mock_rpc, good_async_client
+):
+    mock_rpc.return_value = {"new_workflow_instance_id": "new-instance-456"}
+    mock_request.return_value = []
+
+    with pytest.raises(ClientException) as exc_info:
+        async with good_async_client:
+            await good_async_client.rerun_workflow_with_step_slug(
+                "instance-123", "step-slug"
+            )
+    assert "Workflow instance new-instance-456 not found" in str(exc_info.value)
+
+
+@patch("tws._async.client.AsyncClient._make_rpc_request")
+@patch("tws._async.client.AsyncClient._make_request")
+async def test_rerun_workflow_failure(mock_request, mock_rpc, good_async_client):
+    mock_rpc.return_value = {"new_workflow_instance_id": "new-instance-456"}
+    mock_request.return_value = [
+        {"status": "FAILED", "result": {"error": "workflow failed"}}
+    ]
+
+    with pytest.raises(ClientException) as exc_info:
+        async with good_async_client:
+            await good_async_client.rerun_workflow_with_step_slug(
+                "instance-123", "step-slug"
+            )
+    assert "Workflow execution failed" in str(exc_info.value)
