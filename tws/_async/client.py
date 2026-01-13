@@ -235,24 +235,6 @@ class AsyncClient(TWSClient):
 
             await asyncio.sleep(retry_delay)
 
-    async def get_workflow_steps(
-        self,
-        workflow_definition_id: str,
-        slug: Optional[str] = None,
-        workflow_step_types: Optional[list[str]] = None,
-    ):
-        params = {
-            "select": "id, slug, type, display_name",
-            "workflow_definition_id": f"eq.{workflow_definition_id}",
-        }
-
-        if workflow_step_types is not None:
-            params["type"] = f"in.({','.join(workflow_step_types)})"
-        if slug is not None:
-            params["slug"] = f"eq.{slug}"
-
-        return await self._make_request("GET", f"workflow_steps", params=params)
-
     async def _rerun_workflow(
         self,
         workflow_instance_id: str,

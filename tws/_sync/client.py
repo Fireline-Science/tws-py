@@ -218,24 +218,6 @@ class SyncClient(TWSClient):
 
             time.sleep(retry_delay)
 
-    def get_workflow_steps(
-        self,
-        workflow_definition_id: str,
-        slug: Optional[str] = None,
-        workflow_step_types: Optional[list[str]] = None,
-    ):
-        params = {
-            "select": "id, slug, type, display_name",
-            "workflow_definition_id": f"eq.{workflow_definition_id}",
-        }
-
-        if workflow_step_types is not None:
-            params["type"] = f"in.({','.join(workflow_step_types)})"
-        if slug is not None:
-            params["slug"] = f"eq.{slug}"
-
-        return self._make_request("GET", f"workflow_steps", params=params)
-
     def _rerun_workflow(
         self,
         workflow_instance_id: str,
