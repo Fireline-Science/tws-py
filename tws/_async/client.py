@@ -222,7 +222,9 @@ class AsyncClient(TWSClient):
                 "select": "id,workflow_definition_id,created_at,updated_at,status,result,instance_num",
                 "id": f"eq.{workflow_instance_id}",
             }
-            result = await self._make_request("GET", "workflow_instances", params=params)
+            result = await self._make_request(
+                "GET", "workflow_instances", params=params
+            )
 
             if not result:
                 raise ClientException(
@@ -301,7 +303,9 @@ class AsyncClient(TWSClient):
                 "select": "id,workflow_definition_id,created_at,updated_at,status,result,instance_num",
                 "id": f"eq.{new_workflow_instance_id}",
             }
-            result = await self._make_request("GET", "workflow_instances", params=params)
+            result = await self._make_request(
+                "GET", "workflow_instances", params=params
+            )
 
             if not result:
                 raise ClientException(
