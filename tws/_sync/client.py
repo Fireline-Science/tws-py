@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Dict, cast, Optional
+from typing import Any, Dict, cast, Optional
 
 import httpx
 from httpx import Client as SyncHttpClient
@@ -214,6 +214,136 @@ class SyncClient(TWSClient):
             instance = result[0]
             workflow_result = self._handle_workflow_status(instance)
             if workflow_result is not None:
-                return workflow_result
+                return self._normalize_workflow_result(instance, workflow_result)
 
             time.sleep(retry_delay)
+
+    def get_workflow_steps(
+        self,
+        workflow_definition_id: str,
+        slug: Optional[str] = None,
+        workflow_step_types: Optional[list[str]] = None,
+    ):
+        params = {
+            "select": "id, slug, type, display_name",
+            "workflow_definition_id": f"eq.{workflow_definition_id}",
+        }
+
+        if workflow_step_types is not None:
+            params["type"] = f"in.({','.join(workflow_step_types)})"
+        if slug is not None:
+            params["slug"] = f"eq.{slug}"
+
+        return self._make_request("GET", f"workflow_steps", params=params)
+
+    def _rerun_workflow(
+        self,
+        workflow_instance_id: str,
+        start_from_workflow_key: str,
+        start_from_workflow_step_value: str,
+        timeout: int,
+        retry_delay: int,
+        step_state_overrides: Optional[Dict[str, dict]] = None,
+    ):
+        """Rerun a workflow instance from a specific step.
+
+        Args:
+            workflow_instance_id: The unique identifier of the workflow instance to rerun
+            start_from_workflow_key: The workflow step key to start from ("start_from_slug_name" or "start_from_workflow_step_id")
+            start_from_workflow_step_value: The workflow step ID or slug name to start from
+            step_state_overrides: Optional dictionary mapping step slugs to state overrides
+            timeout: Maximum time in seconds to wait for workflow completion (1-3600)
+            retry_delay: Time in seconds between status checks (1-60)
+
+        Returns:
+            The workflow execution result as a dictionary
+
+        Raises:
+            ClientException: If the workflow fails, times out, or if invalid parameters are provided
+        """
+        self._validate_workflow_params(timeout, retry_delay)
+
+        payload: dict[str, Any] = {
+            "workflow_instance_id": workflow_instance_id,
+            start_from_workflow_key: start_from_workflow_step_value,
+        }
+        if step_state_overrides is not None:
+            payload["step_state_overrides"] = step_state_overrides
+
+        try:
+            result = self._make_rpc_request("rerun_workflow_instance", payload)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 400:
+                error_code = e.response.json().get("code")
+                error_message = e.response.json().get("message", "")
+                if error_code == "DNIED":
+                    raise ClientException(
+                        "Permission denied to rerun this workflow instance"
+                    )
+                elif "not found" in error_message.lower():
+                    raise ClientException("Workflow instance or step not found")
+                elif (
+                    "running" in error_message.lower()
+                    or "pending" in error_message.lower()
+                ):
+                    raise ClientException(
+                        "Cannot rerun a workflow that is currently running or pending"
+                    )
+            raise ClientException(f"HTTP error occurred: {e}")
+
+        new_workflow_instance_id = result["new_workflow_instance_id"]
+        start_time = time.time()
+
+        while True:
+            self._check_timeout(start_time, timeout)
+
+            params = {"select": "status,result", "id": f"eq.{new_workflow_instance_id}"}
+            result = self._make_request("GET", "workflow_instances", params=params)
+
+            if not result:
+                raise ClientException(
+                    f"Workflow instance {new_workflow_instance_id} not found"
+                )
+
+            instance = result[0]
+            workflow_result = self._handle_workflow_status(instance)
+            if workflow_result is not None:
+                return self._normalize_workflow_result(instance, workflow_result)
+
+            time.sleep(retry_delay)
+
+    def rerun_workflow_with_step_slug(
+        self,
+        workflow_instance_id: str,
+        start_from_slug_name: str,
+        step_state_overrides: Optional[Dict[str, dict]] = None,
+        timeout=600,
+        retry_delay=1,
+    ):
+        """Rerun a workflow instance from a specific step by slug."""
+        return self._rerun_workflow(
+            workflow_instance_id,
+            "start_from_slug_name",
+            start_from_slug_name,
+            timeout,
+            retry_delay,
+            step_state_overrides,
+        )
+
+    def rerun_workflow_with_step_id(
+        self,
+        workflow_instance_id: str,
+        start_from_workflow_step_id: str,
+        step_state_overrides: Optional[Dict[str, dict]] = None,
+        timeout=600,
+        retry_delay=1,
+    ):
+        """Rerun a workflow instance from a specific step by ID."""
+        return self._rerun_workflow(
+            workflow_instance_id,
+            "start_from_workflow_step_id",
+            start_from_workflow_step_id,
+            timeout,
+            retry_delay,
+            step_state_overrides,
+        )
