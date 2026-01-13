@@ -98,6 +98,27 @@ class TWSClient(ABC):
             )
 
     @staticmethod
+    def _normalize_workflow_result(instance: dict, workflow_result: dict) -> dict:
+        """Normalize workflow instance data into a standard response format.
+
+        Args:
+            instance: The workflow instance data from the API
+            workflow_result: The processed workflow result
+
+        Returns:
+            A normalized dictionary with standard workflow response fields
+        """
+        return {
+            "id": instance.get("id"),
+            "workflow_definition_id": instance.get("workflow_definition_id"),
+            "created_at": instance.get("created_at"),
+            "updated_at": instance.get("updated_at"),
+            "result": workflow_result,
+            "status": instance.get("status"),
+            "instance_num": instance.get("instance_num"),
+        }
+
+    @staticmethod
     def _validate_tags(tags: Optional[Dict[str, str]]) -> None:
         if tags is not None:
             if not isinstance(tags, dict):
@@ -164,6 +185,58 @@ class TWSClient(ABC):
             retry_delay: Time in seconds between status checks (1-60)
             tags: Optional dictionary of tag key-value pairs to attach to the workflow
             files: Optional dictionary mapping workflow argument names to file paths
+
+        Returns:
+            The workflow execution result as a dictionary
+
+        Raises:
+            ClientException: If the workflow fails, times out, or if invalid parameters are provided
+        """
+        pass
+
+    @abstractmethod
+    def rerun_workflow_with_step_id(
+        self,
+        workflow_instance_id: str,
+        start_from_workflow_step_id: str,
+        step_state_overrides: Optional[Dict[str, dict]] = None,
+        timeout=600,
+        retry_delay=1,
+    ) -> Union[dict, Coroutine[Any, Any, dict]]:
+        """Rerun a workflow instance from a specific step by ID.
+
+        Args:
+            workflow_instance_id: The unique identifier of the workflow instance to rerun
+            start_from_workflow_step_id: The workflow step ID to start from
+            step_state_overrides: Optional dictionary mapping step slugs to state overrides
+            timeout: Maximum time in seconds to wait for workflow completion (1-3600)
+            retry_delay: Time in seconds between status checks (1-60)
+
+        Returns:
+            The workflow execution result as a dictionary
+
+        Raises:
+            ClientException: If the workflow fails, times out, or if invalid parameters are provided
+        """
+        pass
+
+    @abstractmethod
+    def rerun_workflow_with_step_slug(
+        self,
+        workflow_instance_id: str,
+        start_from_slug_name: str,
+        step_state_overrides: Optional[Dict[str, dict]] = None,
+        timeout=600,
+        retry_delay=1,
+    ) -> Union[dict, Coroutine[Any, Any, dict]]:
+        """Rerun a workflow instance from a specific step by slug.
+
+        Args:
+            workflow_instance_id: The unique identifier of the workflow instance to rerun
+            start_from_slug_name: The workflow slug name to start from
+            step_state_overrides: Optional dictionary mapping step slugs to state overrides
+            timeout: Maximum time in seconds to wait for workflow completion (1-3600)
+            retry_delay: Time in seconds between status checks (1-60)
 
         Returns:
             The workflow execution result as a dictionary
