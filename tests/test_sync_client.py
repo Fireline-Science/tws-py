@@ -503,7 +503,9 @@ def test_rerun_workflow_with_step_slug_success(mock_request, mock_rpc, good_clie
     ]
 
     with good_client:
-        result = good_client.rerun_workflow_with_step_slug("instance-123", "step-slug-name")
+        result = good_client.rerun_workflow_with_step_slug(
+            "instance-123", "step-slug-name"
+        )
 
     mock_rpc.assert_called_once_with(
         "rerun_workflow_instance",
@@ -518,7 +520,9 @@ def test_rerun_workflow_with_step_slug_success(mock_request, mock_rpc, good_clie
 
 @patch("tws._sync.client.SyncClient._make_rpc_request")
 @patch("tws._sync.client.SyncClient._make_request")
-def test_rerun_workflow_with_step_slug_with_overrides(mock_request, mock_rpc, good_client):
+def test_rerun_workflow_with_step_slug_with_overrides(
+    mock_request, mock_rpc, good_client
+):
     mock_rpc.return_value = {"new_workflow_instance_id": "new-instance-456"}
     mock_request.return_value = [
         {"status": "COMPLETED", "result": {"output": "rerun with overrides"}}
@@ -598,7 +602,9 @@ def test_rerun_workflow_permission_denied(mock_rpc, good_client):
 def test_rerun_workflow_not_found(mock_rpc, good_client):
     mock_request = Request("POST", "http://example.com")
     mock_response = Response(400, request=mock_request)
-    mock_response._content = b'{"code": "OTHER", "message": "Workflow instance not found"}'
+    mock_response._content = (
+        b'{"code": "OTHER", "message": "Workflow instance not found"}'
+    )
 
     mock_rpc.side_effect = HTTPStatusError(
         "400 Bad Request", request=mock_request, response=mock_response
@@ -614,7 +620,9 @@ def test_rerun_workflow_not_found(mock_rpc, good_client):
 def test_rerun_workflow_already_running(mock_rpc, good_client):
     mock_request = Request("POST", "http://example.com")
     mock_response = Response(400, request=mock_request)
-    mock_response._content = b'{"code": "OTHER", "message": "Workflow is currently running"}'
+    mock_response._content = (
+        b'{"code": "OTHER", "message": "Workflow is currently running"}'
+    )
 
     mock_rpc.side_effect = HTTPStatusError(
         "400 Bad Request", request=mock_request, response=mock_response
@@ -646,7 +654,9 @@ def test_rerun_workflow_timeout(mock_time, mock_request, mock_rpc, good_client):
 
 @patch("tws._sync.client.SyncClient._make_rpc_request")
 @patch("tws._sync.client.SyncClient._make_request")
-def test_rerun_workflow_instance_not_found_during_poll(mock_request, mock_rpc, good_client):
+def test_rerun_workflow_instance_not_found_during_poll(
+    mock_request, mock_rpc, good_client
+):
     mock_rpc.return_value = {"new_workflow_instance_id": "new-instance-456"}
     mock_request.return_value = []
 
